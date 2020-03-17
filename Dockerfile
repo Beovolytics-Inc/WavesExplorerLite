@@ -1,13 +1,15 @@
-FROM    ubuntu
+FROM node:8 AS build
 
-# Install python3
-RUN     apt-get update
-RUN     apt-get install -y python3
+ARG CONF_SWITCH
+ENV CONF_SWITCH ${CONF_SWITCH:-buildOfficialProd}
+WORKDIR /app
+COPY . ./
+RUN yarn install
+RUN ./node_modules/.bin/gulp ${CONF_SWITCH}
 
-# Copy html
-ADD src/ /src
-RUN cd /src
-
-# Run http server on port 8080
-EXPOSE  8080
-CMD ["python3", "-m", "http.server", "8080"]
+FROM nginx:stable-alpine
+RUN rm -rf /etc/nginx/conf.d/*
+COPY --from=build /app/etc/nginx /etc/nginx/conf.d
+COPY --from=build /app/dist /usr/share/nginx/html
+EXPOSE 80
+CMD ["nginx", "-g", "daemon off;"]
